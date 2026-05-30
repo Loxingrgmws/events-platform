@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Szczegóły wydarzenia — Platforma Wydarzeń</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Nawigacja -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/">
+        <i class="bi bi-calendar-event me-2"></i>Platforma Wydarzeń
+      </a>
+      <a href="/" class="btn btn-outline-light btn-sm ms-auto">
+        <i class="bi bi-arrow-left me-1"></i>Wszystkie wydarzenia
+      </a>
+    </div>
+  </nav>
+
+  <div class="container mt-4" style="max-width: 760px;">
+
+    <!-- Stan ładowania -->
+    <div id="loading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">Ładowanie szczegółów...</p>
+    </div>
+
+    <!-- Komunikat błędu (np. nie znaleziono) -->
+    <div id="error-msg" class="alert alert-danger d-none"></div>
+
+    <!-- Szczegóły wydarzenia -->
+    <div id="event-details" class="d-none">
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <span id="event-badge" class="badge fs-6"></span>
+            <span id="event-spaces" class="badge fs-6"></span>
+          </div>
+
+          <h2 id="event-title" class="mb-3"></h2>
+          <p id="event-description" class="text-muted mb-4"></p>
+
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <div class="d-flex align-items-center text-muted">
+                <i class="bi bi-calendar3 fs-5 me-2 text-primary"></i>
+                <div>
+                  <div class="small fw-semibold text-dark">Data i godzina</div>
+                  <div id="event-date"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="d-flex align-items-center text-muted">
+                <i class="bi bi-geo-alt fs-5 me-2 text-primary"></i>
+                <div>
+                  <div class="small fw-semibold text-dark">Miejsce</div>
+                  <div id="event-location"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="d-flex align-items-center text-muted">
+                <i class="bi bi-people fs-5 me-2 text-primary"></i>
+                <div>
+                  <div class="small fw-semibold text-dark">Dostępność</div>
+                  <div id="event-capacity"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formularz rejestracji -->
+      <div id="registration-section" class="card shadow-sm">
+        <div class="card-body p-4">
+          <h4 class="mb-4"><i class="bi bi-person-plus me-2 text-primary"></i>Zarejestruj się</h4>
+
+          <!-- Alert brak miejsc -->
+          <div id="no-spaces-alert" class="alert alert-warning d-none">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Niestety wszystkie miejsca zostały zajęte.
+          </div>
+
+          <!-- Komunikaty zwrotne formularza -->
+          <div id="reg-success" class="alert alert-success d-none"></div>
+          <div id="reg-error" class="alert alert-danger d-none"></div>
+
+          <form id="register-form" novalidate>
+            <div class="mb-3">
+              <label for="reg-name" class="form-label fw-semibold">
+                Imię i nazwisko <span class="text-danger">*</span>
+              </label>
+              <input type="text" class="form-control" id="reg-name"
+                     placeholder="Jan Kowalski" required maxlength="200">
+              <div class="invalid-feedback">Imię i nazwisko jest wymagane.</div>
+            </div>
+
+            <div class="mb-4">
+              <label for="reg-email" class="form-label fw-semibold">
+                Adres e-mail <span class="text-danger">*</span>
+              </label>
+              <input type="email" class="form-control" id="reg-email"
+                     placeholder="jan@example.com" required>
+              <div class="invalid-feedback">Podaj prawidłowy adres e-mail.</div>
+            </div>
+
+            <button type="submit" class="btn btn-success px-4" id="reg-btn">
+              <i class="bi bi-check-circle me-1"></i>Zarejestruj się
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="text-center text-muted py-4 mt-5 border-top">
+    <small>Platforma Wydarzeń Lokalnych &copy; 2026 — Projekt PRz</small>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Mapowanie kategorii
+    const kategorie = {
+      cultural:    { label: 'Kulturalne',   cls: 'bg-primary' },
+      sports:      { label: 'Sportowe',     cls: 'bg-success' },
+      educational: { label: 'Edukacyjne',   cls: 'bg-warning text-dark' }
+    };
+
+    function formatujDate(dateStr) {
+      const d = new Date(dateStr);
+      return d.toLocaleString('pl-PL', {
+        weekday: 'long', year: 'numeric', month: 'long',
+        day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    // Pobranie ID z parametrów URL
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('id');
+
+    if (!eventId) {
+      document.getElementById('loading').classList.add('d-none');
+      document.getElementById('error-msg').textContent = 'Brak ID wydarzenia w adresie URL.';
+      document.getElementById('error-msg').classList.remove('d-none');
+    } else {
+      ladujSzczegoly();
+    }
+
+    async function ladujSzczegoly() {
+      try {
+        const res = await fetch(`/api/events/${eventId}`);
+        if (!res.ok) throw new Error(res.status === 404 ? 'Wydarzenie nie istnieje.' : `HTTP ${res.status}`);
+        const event = await res.json();
+
+        document.title = `${event.title} — Platforma Wydarzeń`;
+
+        // Wypełnienie danych
+        const kat = kategorie[event.category] || { label: event.category, cls: 'bg-secondary' };
+        document.getElementById('event-badge').textContent = kat.label;
+        document.getElementById('event-badge').className = `badge fs-6 ${kat.cls}`;
+
+        const brakMiejsc = event.free_spaces <= 0;
+        const spacesEl = document.getElementById('event-spaces');
+        spacesEl.textContent = brakMiejsc ? 'Brak miejsc' : `${event.free_spaces} wolnych miejsc`;
+        spacesEl.className = `badge fs-6 ${brakMiejsc ? 'bg-danger' : 'bg-success'}`;
+
+        document.getElementById('event-title').textContent = event.title;
+        document.getElementById('event-description').textContent = event.description || 'Brak opisu.';
+        document.getElementById('event-date').textContent = formatujDate(event.date);
+        document.getElementById('event-location').textContent = event.location;
+        document.getElementById('event-capacity').textContent =
+          `${event.free_spaces} / ${event.max_participants} miejsc`;
+
+        // Blokada formularza gdy brak miejsc
+        if (brakMiejsc) {
+          document.getElementById('no-spaces-alert').classList.remove('d-none');
+          document.getElementById('register-form').style.display = 'none';
+        }
+
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('event-details').classList.remove('d-none');
+
+      } catch (err) {
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('error-msg').textContent = 'Błąd: ' + err.message;
+        document.getElementById('error-msg').classList.remove('d-none');
+      }
+    }
+
+    // Obsługa formularza rejestracji
+    const registerForm = document.getElementById('register-form');
+    const regBtn = document.getElementById('reg-btn');
+
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!registerForm.checkValidity()) {
+        registerForm.classList.add('was-validated');
+        return;
+      }
+
+      const name  = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+
+      regBtn.disabled = true;
+      regBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Rejestruję...';
+
+      // Ukrycie poprzednich komunikatów
+      document.getElementById('reg-success').classList.add('d-none');
+      document.getElementById('reg-error').classList.add('d-none');
+
+      try {
+        const res = await fetch(`/api/events/${eventId}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        // Sukces — ukrycie formularza i wyświetlenie potwierdzenia
+        document.getElementById('reg-success').textContent = data.message;
+        document.getElementById('reg-success').classList.remove('d-none');
+        registerForm.style.display = 'none';
+
+        // Odświeżenie licznika miejsc
+        ladujSzczegoly();
+
+      } catch (err) {
+        document.getElementById('reg-error').textContent = err.message;
+        document.getElementById('reg-error').classList.remove('d-none');
+        regBtn.disabled = false;
+        regBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Zarejestruj się';
+      }
+    });
+  </script>
+</body>
+</html>

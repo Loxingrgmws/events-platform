@@ -1,0 +1,15 @@
+{
+  "name": "events-platform",
+  "version": "1.0.0",
+  "description": "Platforma wydarzeń lokalnych — projekt zaliczeniowy PRz",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "better-sqlite3": "^9.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0"
+  }
+}
