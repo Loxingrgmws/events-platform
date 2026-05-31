@@ -1,37 +1,37 @@
 #!/bin/bash
-# Skrypt wdrożenia aplikacji na AWS EC2 (Ubuntu 22.04, t2.micro)
-# Uruchom na świeżej instancji EC2 jako użytkownik ubuntu:
+# Skrypt wdrożenia aplikacji na AWS EC2 (Amazon Linux 2023, t2.micro/t3.micro)
+# Uruchom na świeżej instancji EC2 jako użytkownik ec2-user:
 #   chmod +x deploy.sh && ./deploy.sh
 
 set -e  # Zatrzymaj skrypt przy pierwszym błędzie
 
-APP_DIR="/home/ubuntu/events-platform"
+APP_DIR="/home/ec2-user/events-platform"
 APP_NAME="events-platform"
-REPO_URL="https://github.com/TWOJ_UZYTKOWNIK/events-platform.git"  # Zmień na swoje repo
+REPO_URL="https://github.com/Loxingrgmws/events-platform.git"
 
 echo "======================================="
 echo " Wdrożenie Platformy Wydarzeń Lokalnych"
+echo " Amazon Linux 2023 + Node.js + Nginx"
 echo "======================================="
 
-# 1. Aktualizacja listy pakietów
+# 1. Aktualizacja pakietów systemowych
 echo "[1/9] Aktualizacja pakietów..."
-sudo apt-get update -y
+sudo dnf update -y
 
-# 2. Instalacja Node.js 20 LTS przez NodeSource
+# 2. Instalacja Node.js 20 LTS (dostępny bezpośrednio w repozytoriach AL2023)
 echo "[2/9] Instalacja Node.js 20 LTS..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
+sudo dnf install -y nodejs npm
 
-# 3. Instalacja PM2 — globalny process manager
+# 3. Instalacja PM2 — globalny process manager dla Node.js
 echo "[3/9] Instalacja PM2..."
 sudo npm install -g pm2
 
 # 4. Instalacja Nginx — reverse proxy
-echo "[4/9] Instalacja i konfiguracja Nginx..."
-sudo apt-get install -y nginx
+echo "[4/9] Instalacja Nginx..."
+sudo dnf install -y nginx
 
 # 5. Klonowanie lub aktualizacja kodu aplikacji
-echo "[5/9] Pobieranie kodu aplikacji..."
+echo "[5/9] Pobieranie kodu z GitHub..."
 if [ -d "$APP_DIR" ]; then
   cd "$APP_DIR" && git pull origin main
 else
@@ -41,6 +41,7 @@ fi
 
 # 6. Instalacja zależności Node.js (tylko produkcyjne)
 echo "[6/9] Instalacja zależności npm..."
+cd "$APP_DIR"
 npm install --production
 
 # 7. Uruchomienie aplikacji przez PM2
@@ -54,8 +55,9 @@ pm2 startup | tail -1 | sudo bash
 pm2 save
 
 # 9. Konfiguracja Nginx jako reverse proxy (port 80 → 3000)
+# Na Amazon Linux 2023 Nginx używa /etc/nginx/conf.d/ zamiast sites-available
 echo "[9/9] Konfiguracja Nginx reverse proxy..."
-sudo tee /etc/nginx/sites-available/"$APP_NAME" > /dev/null <<EOF
+sudo tee /etc/nginx/conf.d/"$APP_NAME".conf > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
@@ -72,10 +74,12 @@ server {
 }
 EOF
 
-# Aktywacja konfiguracji i restart Nginx
-sudo ln -sf /etc/nginx/sites-available/"$APP_NAME" /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
+# Usunięcie domyślnej konfiguracji Nginx (blokuje port 80)
+sudo rm -f /etc/nginx/conf.d/default.conf
+
+# Włączenie i restart Nginx
+sudo systemctl enable nginx
+sudo nginx -t && sudo systemctl restart nginx
 
 echo ""
 echo "======================================="
