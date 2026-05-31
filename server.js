@@ -7,6 +7,7 @@ const path = require('path');
 
 const eventsRouter = require('./routes/events');
 const registrationsRouter = require('./routes/registrations');
+const authRouter = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.use(express.json());                  // Parsowanie ciała żądań JSON
 app.use(express.static(path.join(__dirname, 'public'))); // Serwowanie plików frontendu
 
 // --- Routing API ---
+app.use('/api/auth', authRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/events/:id/register', registrationsRouter);
 

@@ -1,5 +1,6 @@
 // Moduł zarządzający połączeniem z bazą danych SQLite
 const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 
 // Ścieżka do pliku bazy danych w katalogu głównym projektu
@@ -9,34 +10,68 @@ const db = new Database(dbPath);
 // Włączenie kluczy obcych (domyślnie wyłączone w SQLite)
 db.pragma('foreign_keys = ON');
 
-// Tworzenie tabeli wydarzeń jeśli nie istnieje
+// Tabela użytkowników z systemem ról
 db.exec(`
-  CREATE TABLE IF NOT EXISTS events (
+  CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    title         TEXT    NOT NULL,
-    description   TEXT,
-    category      TEXT    NOT NULL CHECK(category IN ('cultural', 'sports', 'educational')),
-    date          TEXT    NOT NULL,
-    location      TEXT    NOT NULL,
-    max_participants INTEGER NOT NULL DEFAULT 50,
+    username      TEXT    NOT NULL UNIQUE,
+    email         TEXT    NOT NULL UNIQUE,
+    password_hash TEXT    NOT NULL,
+    role          TEXT    NOT NULL DEFAULT 'user'
+                          CHECK(role IN ('user', 'admin')),
     created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
   )
 `);
 
-// Tworzenie tabeli rejestracji jeśli nie istnieje
+// Tabela wydarzeń — creator_id nullable, żeby seed data bez konta działała
+db.exec(`
+  CREATE TABLE IF NOT EXISTS events (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    creator_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    title            TEXT    NOT NULL,
+    description      TEXT,
+    category         TEXT    NOT NULL CHECK(category IN ('cultural', 'sports', 'educational')),
+    date             TEXT    NOT NULL,
+    location         TEXT    NOT NULL,
+    max_participants INTEGER NOT NULL DEFAULT 50,
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// Tabela rejestracji uczestników
 db.exec(`
   CREATE TABLE IF NOT EXISTS registrations (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id      INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    user_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
     name          TEXT    NOT NULL,
     email         TEXT    NOT NULL,
     registered_at TEXT    NOT NULL DEFAULT (datetime('now'))
   )
 `);
 
-// Wstawianie danych przykładowych tylko gdy tabela jest pusta
-const count = db.prepare('SELECT COUNT(*) AS cnt FROM events').get();
-if (count.cnt === 0) {
+// Seed użytkowników — wstawiany tylko gdy tabela users jest pusta
+const userCount = db.prepare('SELECT COUNT(*) AS cnt FROM users').get();
+if (userCount.cnt === 0) {
+  const insertUser = db.prepare(`
+    INSERT INTO users (username, email, password_hash, role)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  // Konto administratora (hasło: admin123)
+  const adminHash = bcrypt.hashSync('admin123', 10);
+  insertUser.run('admin', 'admin@events.pl', adminHash, 'admin');
+
+  // Przykładowe konto zwykłego użytkownika (hasło: user123)
+  const userHash = bcrypt.hashSync('user123', 10);
+  insertUser.run('jan_kowalski', 'jan@events.pl', userHash, 'user');
+
+  console.log('Konta testowe utworzone (admin@events.pl / admin123).');
+}
+
+// Seed wydarzeń — wstawiany tylko gdy tabela events jest pusta
+const eventCount = db.prepare('SELECT COUNT(*) AS cnt FROM events').get();
+if (eventCount.cnt === 0) {
   const insertEvent = db.prepare(`
     INSERT INTO events (title, description, category, date, location, max_participants)
     VALUES (@title, @description, @category, @date, @location, @max_participants)
@@ -85,7 +120,6 @@ if (count.cnt === 0) {
     }
   ];
 
-  // Wstawianie wszystkich rekordów w jednej transakcji dla wydajności
   const insertMany = db.transaction((events) => {
     for (const event of events) insertEvent.run(event);
   });

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logowanie — Platforma Wydarzeń</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/">
+        <i class="bi bi-calendar-event me-2"></i>Platforma Wydarzeń
+      </a>
+    </div>
+  </nav>
+
+  <div class="container mt-5" style="max-width: 420px;">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h3 class="mb-4 text-center"><i class="bi bi-person-lock me-2 text-primary"></i>Logowanie</h3>
+
+        <div id="error-msg" class="alert alert-danger d-none"></div>
+
+        <form id="login-form" novalidate>
+          <div class="mb-3">
+            <label for="email" class="form-label fw-semibold">Adres e-mail</label>
+            <input type="email" class="form-control" id="email"
+                   placeholder="jan@example.com" required>
+          </div>
+          <div class="mb-4">
+            <label for="password" class="form-label fw-semibold">Hasło</label>
+            <input type="password" class="form-control" id="password"
+                   placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100" id="submit-btn">
+            <i class="bi bi-box-arrow-in-right me-1"></i>Zaloguj się
+          </button>
+        </form>
+
+        <hr class="my-3">
+        <p class="text-center text-muted mb-0 small">
+          Nie masz konta?
+          <a href="register.html">Zarejestruj się</a>
+        </p>
+        <p class="text-center text-muted mt-2 small">
+          <i class="bi bi-info-circle me-1"></i>Konto testowe: admin@events.pl / admin123
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Jeśli już zalogowany — przekieruj na stronę główną
+    if (localStorage.getItem('token')) {
+      window.location.href = '/';
+    }
+
+    const form = document.getElementById('login-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorMsg = document.getElementById('error-msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Logowanie...';
+      errorMsg.classList.add('d-none');
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        // Zapis tokenu i danych użytkownika w localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        window.location.href = '/';
+
+      } catch (err) {
+        errorMsg.textContent = err.message;
+        errorMsg.classList.remove('d-none');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-1"></i>Zaloguj się';
+      }
+    });
+  </script>
+</body>
+</html>

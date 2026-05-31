@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rejestracja — Platforma Wydarzeń</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/">
+        <i class="bi bi-calendar-event me-2"></i>Platforma Wydarzeń
+      </a>
+    </div>
+  </nav>
+
+  <div class="container mt-5" style="max-width: 460px;">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h3 class="mb-4 text-center"><i class="bi bi-person-plus me-2 text-primary"></i>Rejestracja</h3>
+
+        <div id="error-msg" class="alert alert-danger d-none"></div>
+
+        <form id="register-form" novalidate>
+          <div class="mb-3">
+            <label for="username" class="form-label fw-semibold">Nazwa użytkownika</label>
+            <input type="text" class="form-control" id="username"
+                   placeholder="np. jan_kowalski" required minlength="3" maxlength="50">
+            <div class="form-text">Min. 3 znaki, bez spacji.</div>
+          </div>
+          <div class="mb-3">
+            <label for="email" class="form-label fw-semibold">Adres e-mail</label>
+            <input type="email" class="form-control" id="email"
+                   placeholder="jan@example.com" required>
+          </div>
+          <div class="mb-3">
+            <label for="password" class="form-label fw-semibold">Hasło</label>
+            <input type="password" class="form-control" id="password"
+                   placeholder="min. 6 znaków" required minlength="6">
+          </div>
+          <div class="mb-4">
+            <label for="password2" class="form-label fw-semibold">Powtórz hasło</label>
+            <input type="password" class="form-control" id="password2"
+                   placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-success w-100" id="submit-btn">
+            <i class="bi bi-check-circle me-1"></i>Utwórz konto
+          </button>
+        </form>
+
+        <hr class="my-3">
+        <p class="text-center text-muted mb-0 small">
+          Masz już konto? <a href="login.html">Zaloguj się</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Jeśli już zalogowany — przekieruj na stronę główną
+    if (localStorage.getItem('token')) {
+      window.location.href = '/';
+    }
+
+    const form = document.getElementById('register-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorMsg = document.getElementById('error-msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.classList.add('d-none');
+
+      const username  = document.getElementById('username').value.trim();
+      const email     = document.getElementById('email').value.trim();
+      const password  = document.getElementById('password').value;
+      const password2 = document.getElementById('password2').value;
+
+      // Walidacja po stronie klienta
+      if (username.length < 3) {
+        errorMsg.textContent = 'Nazwa użytkownika musi mieć co najmniej 3 znaki.';
+        errorMsg.classList.remove('d-none');
+        return;
+      }
+      if (password.length < 6) {
+        errorMsg.textContent = 'Hasło musi mieć co najmniej 6 znaków.';
+        errorMsg.classList.remove('d-none');
+        return;
+      }
+      if (password !== password2) {
+        errorMsg.textContent = 'Hasła nie są identyczne.';
+        errorMsg.classList.remove('d-none');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Tworzenie konta...';
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        // Zapis tokenu i przekierowanie
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.href = '/';
+
+      } catch (err) {
+        errorMsg.textContent = err.message;
+        errorMsg.classList.remove('d-none');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Utwórz konto';
+      }
+    });
+  </script>
+</body>
+</html>

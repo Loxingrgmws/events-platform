@@ -16,29 +16,38 @@
       <a class="navbar-brand fw-bold" href="/">
         <i class="bi bi-calendar-event me-2"></i>Platforma Wydarzeń
       </a>
-      <a href="create.html" class="btn btn-light btn-sm ms-auto">
-        <i class="bi bi-plus-circle me-1"></i>Dodaj wydarzenie
-      </a>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <!-- Widoczne dla zalogowanych -->
+        <span id="nav-user" class="text-white small d-none"></span>
+        <a href="create.html" id="btn-add" class="btn btn-light btn-sm d-none">
+          <i class="bi bi-plus-circle me-1"></i>Dodaj wydarzenie
+        </a>
+        <button id="btn-logout" class="btn btn-outline-light btn-sm d-none" onclick="wyloguj()">
+          <i class="bi bi-box-arrow-right me-1"></i>Wyloguj
+        </button>
+        <!-- Widoczne dla gości -->
+        <a href="login.html" id="btn-login" class="btn btn-light btn-sm d-none">
+          <i class="bi bi-person me-1"></i>Zaloguj się
+        </a>
+        <a href="register.html" id="btn-register" class="btn btn-outline-light btn-sm d-none">
+          Zarejestruj się
+        </a>
+      </div>
     </div>
   </nav>
 
-  <!-- Treść główna -->
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="mb-0">Nadchodzące wydarzenia</h2>
       <span id="events-count" class="badge bg-secondary fs-6"></span>
     </div>
 
-    <!-- Stan ładowania -->
     <div id="loading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status"></div>
       <p class="mt-2 text-muted">Ładowanie wydarzeń...</p>
     </div>
 
-    <!-- Komunikat błędu -->
     <div id="error-msg" class="alert alert-danger d-none"></div>
-
-    <!-- Siatka kart wydarzeń -->
     <div id="events-grid" class="row g-4"></div>
   </div>
 
@@ -48,14 +57,12 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Mapowanie kategorii na etykiety i kolory Bootstrap
     const kategorie = {
-      cultural:    { label: 'Kulturalne',   cls: 'bg-primary' },
-      sports:      { label: 'Sportowe',     cls: 'bg-success' },
-      educational: { label: 'Edukacyjne',   cls: 'bg-warning text-dark' }
+      cultural:    { label: 'Kulturalne',  cls: 'bg-primary' },
+      sports:      { label: 'Sportowe',    cls: 'bg-success' },
+      educational: { label: 'Edukacyjne',  cls: 'bg-warning text-dark' }
     };
 
-    // Formatowanie daty na czytelny format polski
     function formatujDate(dateStr) {
       const d = new Date(dateStr);
       return d.toLocaleString('pl-PL', {
@@ -64,11 +71,17 @@
       });
     }
 
-    // Budowanie karty HTML dla jednego wydarzenia
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
     function budujKarte(event) {
       const kat = kategorie[event.category] || { label: event.category, cls: 'bg-secondary' };
       const wolne = event.free_spaces;
       const brakMiejsc = wolne <= 0;
+      const tworca = event.creator_name ? `<small class="text-muted">Dodał: ${escapeHtml(event.creator_name)}</small>` : '';
 
       return `
         <div class="col-md-6 col-lg-4">
@@ -81,16 +94,14 @@
                 </span>
               </div>
               <h5 class="card-title">${escapeHtml(event.title)}</h5>
-              <p class="card-text text-muted small flex-grow-1">
-                ${escapeHtml(event.description || '')}
-              </p>
-              <div class="text-muted small mb-3">
+              <p class="card-text text-muted small flex-grow-1">${escapeHtml(event.description || '')}</p>
+              <div class="text-muted small mb-2">
                 <div><i class="bi bi-calendar3 me-1"></i>${formatujDate(event.date)}</div>
                 <div><i class="bi bi-geo-alt me-1"></i>${escapeHtml(event.location)}</div>
               </div>
-              <a href="event.html?id=${event.id}"
-                 class="btn btn-primary btn-sm mt-auto ${brakMiejsc ? 'btn-secondary' : ''}">
-                ${brakMiejsc ? 'Zobacz szczegóły' : 'Szczegóły i rejestracja'}
+              ${tworca}
+              <a href="event.html?id=${event.id}" class="btn btn-primary btn-sm mt-3">
+                Szczegóły i rejestracja
               </a>
             </div>
           </div>
@@ -98,14 +109,27 @@
       `;
     }
 
-    // Zabezpieczenie przed XSS — escapowanie znaków HTML
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
+    // Aktualizacja nawigacji w zależności od stanu logowania
+    function aktualizujNav() {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+
+      if (user) {
+        document.getElementById('nav-user').textContent = `Cześć, ${user.username}!`;
+        document.getElementById('nav-user').classList.remove('d-none');
+        document.getElementById('btn-add').classList.remove('d-none');
+        document.getElementById('btn-logout').classList.remove('d-none');
+      } else {
+        document.getElementById('btn-login').classList.remove('d-none');
+        document.getElementById('btn-register').classList.remove('d-none');
+      }
     }
 
-    // Pobieranie i wyświetlanie listy wydarzeń
+    function wyloguj() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.reload();
+    }
+
     async function ladujWydarzenia() {
       try {
         const res = await fetch('/api/events');
@@ -117,7 +141,7 @@
 
         if (events.length === 0) {
           document.getElementById('events-grid').innerHTML =
-            '<p class="text-muted text-center py-5">Brak wydarzeń. <a href="create.html">Dodaj pierwsze!</a></p>';
+            '<p class="text-muted text-center py-5">Brak wydarzeń. <a href="login.html">Zaloguj się</a> i dodaj pierwsze!</p>';
           return;
         }
 
@@ -129,6 +153,7 @@
       }
     }
 
+    aktualizujNav();
     ladujWydarzenia();
   </script>
 </body>
