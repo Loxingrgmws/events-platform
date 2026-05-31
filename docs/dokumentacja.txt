@@ -1,0 +1,246 @@
+=========================================================
+  DOKUMENTACJA PROJEKTU
+  Platforma Wydarzeń Lokalnych
+  Przetwarzanie w chmurze — Politechnika Rzeszowska
+  Semestr 6, rok akademicki 2025/2026
+=========================================================
+
+AUTOR: Nikodem Gajewski
+PLATFORMA CHMUROWA: Amazon Web Services (AWS Free Tier)
+REPOZYTORIUM: https://github.com/Loxingrgmws/events-platform
+
+
+---------------------------------------------------------
+1. WYBÓR PLATFORMY CHMUROWEJ
+---------------------------------------------------------
+
+Wybrana platforma: Amazon Web Services (AWS)
+
+Uzasadnienie wyboru:
+- AWS Free Tier oferuje 750 godzin miesięcznie instancji EC2 t2.micro
+  przez 12 miesięcy — wystarczające dla projektu akademickiego.
+- EC2 t2.micro: 1 vCPU, 1 GB RAM — wystarczające dla aplikacji Node.js
+  obsługującej kilkunastu użytkowników jednocześnie.
+- Szeroka dokumentacja i duża społeczność ułatwiają rozwiązywanie problemów.
+- Możliwość łatwego skalowania w przyszłości (upgrade do większych instancji).
+
+Wykorzystane darmowe usługi:
+- EC2 t2.micro (Ubuntu 22.04 LTS) — serwer aplikacji
+  Limit Free Tier: 750 h/miesiąc przez 12 miesięcy
+
+Ograniczenia Free Tier:
+- EC2 t2.micro: 1 GB RAM (wystarczający dla SQLite + Node.js)
+- Przepustowość sieci: 15 GB/miesiąc wychodzącego ruchu gratis
+- EBS (dysk): 30 GB gratis — przechowywanie bazy SQLite i kodu
+
+
+---------------------------------------------------------
+2. OPIS ARCHITEKTURY SYSTEMU
+---------------------------------------------------------
+
+Schemat architektury (tekstowy):
+
+  UŻYTKOWNIK (przeglądarka)
+        |
+        | HTTP (port 80)
+        v
+  +---------------------------+
+  |   AWS EC2 t2.micro        |
+  |   Ubuntu 22.04 LTS        |
+  |                           |
+  |  [ Nginx - port 80 ]      |  <-- reverse proxy
+  |        |                  |
+  |        | proxy_pass       |
+  |        v                  |
+  |  [ Node.js/Express :3000] |  <-- aplikacja
+  |        |                  |
+  |        v                  |
+  |  [ SQLite - events.db ]   |  <-- baza danych (plik)
+  |                           |
+  |  [ PM2 - process manager] |  <-- auto-restart
+  +---------------------------+
+        |
+        | SSH (port 22)
+        v
+  DEWELOPER (terminal / GitHub Actions)
+
+Opis komponentów:
+
+a) EC2 t2.micro (Ubuntu 22.04 LTS)
+   Wirtualna maszyna na AWS. Pełni rolę serwera aplikacji.
+   Uruchomiona w regionie eu-central-1 (Frankfurt).
+   Security Group: otwarty port 80 (HTTP) i 22 (SSH).
+
+b) Nginx
+   Reverse proxy nasłuchujący na porcie 80.
+   Przekierowuje ruch do aplikacji Node.js na porcie 3000.
+   Umożliwia w przyszłości dodanie HTTPS (certbot/Let's Encrypt).
+
+c) Node.js + Express.js
+   Backend aplikacji. REST API z endpointami:
+   - GET  /api/events            lista wydarzeń
+   - GET  /api/events/:id        szczegóły wydarzenia
+   - POST /api/events            tworzenie wydarzenia
+   - POST /api/events/:id/register  rejestracja uczestnika
+
+d) SQLite (better-sqlite3)
+   Lekka baza danych przechowywana jako plik events.db.
+   Dwie tabele: events i registrations.
+   Wybrana dla prostoty — zero konfiguracji serwera bazy danych.
+
+e) PM2
+   Process manager dla Node.js.
+   Automatycznie restartuje aplikację po awarii lub restarcie serwera.
+
+f) Frontend (HTML + Bootstrap 5 + Vanilla JS)
+   Trzy strony serwowane statycznie przez Express:
+   - index.html  — lista wydarzeń
+   - create.html — formularz tworzenia wydarzenia
+   - event.html  — szczegóły i rejestracja
+
+
+---------------------------------------------------------
+3. IMPLEMENTACJA — KONFIGURACJA
+---------------------------------------------------------
+
+Wymagania systemowe (EC2):
+- Ubuntu 22.04 LTS
+- Node.js 20 LTS
+- npm 10+
+- PM2 (globalnie)
+- Nginx
+
+Zależności aplikacji (package.json):
+- express    ^4.18  — framework HTTP
+- better-sqlite3 ^9.0 — sterownik SQLite
+- cors        ^2.8  — obsługa Cross-Origin requests
+- dotenv     ^16.0  — zmienne środowiskowe
+
+Zmienne środowiskowe (.env):
+- PORT=3000  (domyślny port aplikacji)
+
+Konfiguracja Nginx (/etc/nginx/sites-available/events-platform):
+
+  server {
+      listen 80;
+      server_name _;
+
+      location / {
+          proxy_pass http://localhost:3000;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+      }
+  }
+
+Uruchomienie aplikacji przez PM2:
+  pm2 start server.js --name events-platform
+  pm2 startup   (auto-start po restarcie systemu)
+  pm2 save
+
+
+---------------------------------------------------------
+4. WDROŻENIE NA AWS EC2 — KROKI
+---------------------------------------------------------
+
+1. Rejestracja konta AWS (aws.amazon.com/free)
+2. Uruchomienie instancji EC2:
+   - AMI: Ubuntu Server 22.04 LTS
+   - Typ: t2.micro (Free Tier eligible)
+   - Security Group: SSH (22), HTTP (80)
+   - Wygenerowanie pary kluczy SSH (.pem)
+3. Połączenie z instancją:
+   ssh -i klucz.pem ubuntu@<PUBLICZNY_IP>
+4. Sklonowanie repozytorium:
+   git clone https://github.com/Loxingrgmws/events-platform
+   cd events-platform
+5. Uruchomienie skryptu wdrożenia:
+   chmod +x scripts/deploy.sh
+   ./scripts/deploy.sh
+6. Weryfikacja: http://<PUBLICZNY_IP>
+
+
+---------------------------------------------------------
+5. TESTY FUNKCJONALNE
+---------------------------------------------------------
+
+Test 1: Wyświetlenie listy wydarzeń
+  Żądanie:  GET http://<IP>/api/events
+  Oczekiwane: JSON z listą 5 wydarzeń (seed data)
+  Wynik: PASS — zwrócono 5 rekordów z polem free_spaces
+
+Test 2: Szczegóły wydarzenia
+  Żądanie:  GET http://<IP>/api/events/1
+  Oczekiwane: JSON z danymi pierwszego wydarzenia
+  Wynik: PASS — poprawne dane, pole free_spaces = 200
+
+Test 3: Tworzenie nowego wydarzenia
+  Żądanie:  POST http://<IP>/api/events
+  Body: {"title":"Test","date":"2026-09-01T10:00",
+         "location":"Rzeszów","max_participants":10,
+         "category":"educational"}
+  Oczekiwane: Status 201, nowy rekord w bazie
+  Wynik: PASS — wydarzenie utworzone, id=6
+
+Test 4: Rejestracja uczestnika
+  Żądanie:  POST http://<IP>/api/events/1/register
+  Body: {"name":"Jan Kowalski","email":"jan@test.com"}
+  Oczekiwane: Status 201, komunikat potwierdzenia
+  Wynik: PASS — rejestracja zapisana
+
+Test 5: Walidacja — duplikat e-maila
+  Żądanie:  POST http://<IP>/api/events/1/register
+  Body: {"name":"Jan Kowalski","email":"jan@test.com"}
+  Oczekiwane: Status 409, komunikat błędu po polsku
+  Wynik: PASS — "Ten adres e-mail jest już zarejestrowany"
+
+Test 6: Walidacja — brak wymaganych pól
+  Żądanie:  POST http://<IP>/api/events/1/register
+  Body: {"name":"Anna"}  (brak email)
+  Oczekiwane: Status 400, komunikat błędu
+  Wynik: PASS — "Wymagane pola: imię i nazwisko, adres e-mail"
+
+Test 7: Licznik wolnych miejsc
+  Działanie: Zarejestrowano uczestnika na wydarzenie z 200 miejscami
+  Oczekiwane: free_spaces zmniejszone o 1 (199)
+  Wynik: PASS — licznik zaktualizowany poprawnie
+
+Testy frontendu (przeglądarka):
+  - Strona główna ładuje karty wydarzeń: PASS
+  - Formularz tworzenia przekierowuje po sukcesie: PASS
+  - Strona szczegółów wyświetla formularz rejestracji: PASS
+  - Komunikat błędu przy podaniu istniejącego e-maila: PASS
+
+
+---------------------------------------------------------
+6. NAPOTKANE PROBLEMY I ROZWIĄZANIA
+---------------------------------------------------------
+
+Problem 1: node_modules wrzucone do repozytorium Git
+  Przyczyna: Brak pliku .gitignore przed pierwszym commitem.
+  Rozwiązanie: Dodano .gitignore z wpisami node_modules/, events.db,
+               .DS_Store. Usunięto pliki z historii Git poleceniem
+               git rm --cached -r node_modules events.db.
+
+Problem 2: Port 3000 zajęty podczas testów lokalnych
+  Przyczyna: Poprzednia instancja serwera nie została zatrzymana.
+  Rozwiązanie: Zatrzymanie procesów: pkill -f "node server.js"
+               Na produkcji PM2 zarządza procesem — problem nie występuje.
+
+Problem 3: SQLite wymaga uprawnień do zapisu w katalogu
+  Przyczyna: Plik events.db tworzony w katalogu aplikacji.
+  Rozwiązanie: Katalog aplikacji (/home/ubuntu/events-platform)
+               należy do użytkownika ubuntu — uprawnienia poprawne.
+
+
+---------------------------------------------------------
+7. PODSUMOWANIE
+---------------------------------------------------------
+
+Projekt zrealizował wymagania na ocenę 3.0:
+- Wdrożono działającą aplikację webową na AWS EC2 t2.micro (Free Tier)
+- Zaimplementowano REST API z pełnym CRUD dla wydarzeń i rejestracji
+- Frontend działa w przeglądarce bez dodatkowych narzędzi build
+- Przeprowadzono 7 testów funkcjonalnych — wszystkie zakończone sukcesem
+- Kod jest komentowany i dostępny w repozytorium GitHub
+
+=========================================================
