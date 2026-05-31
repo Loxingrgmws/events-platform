@@ -1,26 +1,27 @@
 #!/bin/bash
-# Skrypt wdrożenia aplikacji na AWS EC2 (Amazon Linux 2023, t2.micro/t3.micro)
-# Uruchom na świeżej instancji EC2 jako użytkownik ec2-user:
+# Skrypt wdrożenia aplikacji na AWS EC2 (Ubuntu 24.04 LTS, t2.micro/t3.micro)
+# Uruchom na świeżej instancji EC2 jako użytkownik ubuntu:
 #   chmod +x deploy.sh && ./deploy.sh
 
 set -e  # Zatrzymaj skrypt przy pierwszym błędzie
 
-APP_DIR="/home/ec2-user/events-platform"
+APP_DIR="/home/ubuntu/events-platform"
 APP_NAME="events-platform"
 REPO_URL="https://github.com/Loxingrgmws/events-platform.git"
 
 echo "======================================="
 echo " Wdrożenie Platformy Wydarzeń Lokalnych"
-echo " Amazon Linux 2023 + Node.js + Nginx"
+echo " Ubuntu 24.04 LTS + Node.js + Nginx"
 echo "======================================="
 
 # 1. Aktualizacja pakietów systemowych
 echo "[1/9] Aktualizacja pakietów..."
-sudo dnf update -y
+sudo apt-get update -y
 
-# 2. Instalacja Node.js 20 LTS (dostępny bezpośrednio w repozytoriach AL2023)
+# 2. Instalacja Node.js 20 LTS przez NodeSource
 echo "[2/9] Instalacja Node.js 20 LTS..."
-sudo dnf install -y nodejs npm
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
 
 # 3. Instalacja PM2 — globalny process manager dla Node.js
 echo "[3/9] Instalacja PM2..."
@@ -28,7 +29,7 @@ sudo npm install -g pm2
 
 # 4. Instalacja Nginx — reverse proxy
 echo "[4/9] Instalacja Nginx..."
-sudo dnf install -y nginx
+sudo apt-get install -y nginx
 
 # 5. Klonowanie lub aktualizacja kodu aplikacji
 echo "[5/9] Pobieranie kodu z GitHub..."
@@ -55,9 +56,8 @@ pm2 startup | tail -1 | sudo bash
 pm2 save
 
 # 9. Konfiguracja Nginx jako reverse proxy (port 80 → 3000)
-# Na Amazon Linux 2023 Nginx używa /etc/nginx/conf.d/ zamiast sites-available
 echo "[9/9] Konfiguracja Nginx reverse proxy..."
-sudo tee /etc/nginx/conf.d/"$APP_NAME".conf > /dev/null <<EOF
+sudo tee /etc/nginx/sites-available/"$APP_NAME" > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
@@ -74,10 +74,9 @@ server {
 }
 EOF
 
-# Usunięcie domyślnej konfiguracji Nginx (blokuje port 80)
-sudo rm -f /etc/nginx/conf.d/default.conf
-
-# Włączenie i restart Nginx
+# Aktywacja konfiguracji i restart Nginx
+sudo ln -sf /etc/nginx/sites-available/"$APP_NAME" /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo systemctl enable nginx
 sudo nginx -t && sudo systemctl restart nginx
 
