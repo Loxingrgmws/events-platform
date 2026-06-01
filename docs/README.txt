@@ -68,16 +68,3 @@ WDROŻENIE NA AWS EC2
    ./scripts/deploy.sh
 6. Aplikacja działa na http://<IP_INSTANCJI>
 
-CI/CD (GitHub Actions)
------------------------
-Po skonfigurowaniu sekretów w GitHub (EC2_HOST, EC2_USERNAME, EC2_SSH_KEY)
-każdy push na gałąź main automatycznie wdraża kod na serwer EC2.
-
-UPGRADE DO OCENY 3.5
-----------------------
-Zamiana SQLite na AWS RDS PostgreSQL:
-1. Utwórz instancję RDS db.t2.micro (PostgreSQL)
-2. W database/db.js zastąp better-sqlite3 pakietem pg
-3. Zaktualizuj connection string w .env:
-   DATABASE_URL=postgresql://user:pass@rds-endpoint:5432/dbname
-4. Dostosuj składnię SQL (parametry $1, $2 zamiast ?)
