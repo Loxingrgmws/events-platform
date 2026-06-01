@@ -1,26 +1,202 @@
-/* Globalne style uzupełniające Bootstrap 5 */
+/* ============================================================
+   Platforma Wydarzeń — nowoczesny motyw graficzny
+   Nadpisuje domyślne style Bootstrap 5 spójnym designem.
+   ============================================================ */
 
-body {
-  background-color: #f8f9fa;
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Paleta marki — gradient indygo → fiolet */
+  --brand-1: #6366f1;
+  --brand-2: #8b5cf6;
+  --brand-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --brand-soft: #eef2ff;
+
+  /* Kolory neutralne */
+  --ink: #1e293b;        /* główny tekst */
+  --ink-soft: #64748b;   /* tekst pomocniczy */
+  --surface: #ffffff;    /* karty */
+  --bg: #f1f5f9;         /* tło strony */
+
+  /* Cienie */
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 16px 40px rgba(99, 102, 241, 0.18);
+
+  /* Zaokrąglenia */
+  --radius: 16px;
+  --radius-sm: 12px;
 }
 
-/* Efekt uniesienia karty przy najechaniu */
+/* ---------- Podstawy ---------- */
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.06), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.06), transparent 40%);
+  background-attachment: fixed;
+  color: var(--ink);
+}
+
+h1, h2, h3, h4, h5 { font-weight: 700; letter-spacing: -0.02em; }
+
+a { color: var(--brand-1); text-decoration: none; }
+a:hover { color: var(--brand-2); }
+
+/* ---------- Navbar ---------- */
+.navbar.bg-primary {
+  background: var(--brand-grad) !important;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+.navbar-brand { font-weight: 800; font-size: 1.3rem; letter-spacing: -0.03em; }
+
+/* ---------- Sekcja hero ---------- */
+.hero {
+  background: var(--brand-grad);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 3rem 2.5rem;
+  margin-bottom: 2.5rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  top: -50%; right: -10%;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  border-radius: 50%;
+}
+.hero h1 { font-size: 2.4rem; font-weight: 800; margin-bottom: 0.75rem; }
+.hero p { font-size: 1.1rem; opacity: 0.92; max-width: 540px; margin-bottom: 0; }
+
+/* ---------- Karty ---------- */
+.card {
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  background: var(--surface);
+}
+
 .event-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.25s cubic-bezier(.2,.8,.2,1), box-shadow 0.25s ease;
+  overflow: hidden;
+  position: relative;
+}
+.event-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--brand-grad);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.event-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg) !important;
+}
+.event-card:hover::before { opacity: 1; }
+
+.card-title { color: var(--ink); font-weight: 700; }
+
+/* ---------- Przyciski ---------- */
+.btn {
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.55rem 1.2rem;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: var(--brand-grad);
+  border: none;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+.btn-primary:hover, .btn-primary:focus {
+  filter: brightness(1.07);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+.btn-success:hover { filter: brightness(1.07); }
+
+.btn-light {
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  color: var(--brand-1);
+  font-weight: 700;
+}
+.btn-light:hover { background: #fff; color: var(--brand-2); }
+
+.btn-outline-light { border-width: 1.5px; font-weight: 600; }
+
+.btn-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border: none; color: #fff;
+}
+.btn-warning:hover { filter: brightness(1.07); color: #fff; }
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   border: none;
 }
 
-.event-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+/* ---------- Odznaki (badge) ---------- */
+.badge {
+  font-weight: 600;
+  padding: 0.4em 0.85em;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
 }
+.badge.bg-primary   { background: var(--brand-soft) !important; color: #4f46e5 !important; }
+.badge.bg-success   { background: #dcfce7 !important; color: #15803d !important; }
+.badge.bg-warning   { background: #fef3c7 !important; color: #b45309 !important; }
+.badge.bg-danger    { background: #fee2e2 !important; color: #b91c1c !important; }
+.badge.bg-secondary { background: #e2e8f0 !important; color: #475569 !important; }
+.badge.bg-light     { background: #f8fafc !important; color: var(--ink-soft) !important; border: 1px solid #e2e8f0; }
 
-/* Navbar — dodatkowy cień */
-.navbar {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+/* ---------- Formularze ---------- */
+.form-control, .form-select {
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  padding: 0.6rem 0.9rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+.form-control:focus, .form-select:focus {
+  border-color: var(--brand-1);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+}
+.form-label { color: var(--ink); }
 
-/* Kolorowe akcenty dla kategorii na karcie */
-.event-card.cultural   { border-left: 4px solid #0d6efd; }
-.event-card.sports     { border-left: 4px solid #198754; }
-.event-card.educational { border-left: 4px solid #ffc107; }
+/* ---------- Alerty ---------- */
+.alert { border: none; border-radius: var(--radius-sm); font-weight: 500; }
+.alert-success { background: #dcfce7; color: #15803d; }
+.alert-danger  { background: #fee2e2; color: #b91c1c; }
+.alert-warning { background: #fef3c7; color: #b45309; }
+.alert-info    { background: var(--brand-soft); color: #4338ca; }
+
+/* ---------- Modal ---------- */
+.modal-content { border: none; border-radius: var(--radius); box-shadow: var(--shadow-lg); }
+.modal-header { border-bottom: 1px solid #f1f5f9; }
+.modal-footer { border-top: 1px solid #f1f5f9; }
+
+/* ---------- Spinner / kolory pomocnicze ---------- */
+.spinner-border.text-primary { color: var(--brand-1) !important; }
+.text-primary { color: var(--brand-1) !important; }
+
+/* ---------- Stopka ---------- */
+footer { color: var(--ink-soft); }
+
+/* ---------- Drobne ikony w kartach ---------- */
+.event-card .bi { color: var(--brand-1); }

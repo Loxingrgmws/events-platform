@@ -3,3 +3,4 @@ events.db
 .DS_Store
 .env
 *.pem
+.claude/
